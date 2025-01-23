@@ -1,0 +1,9 @@
+[package]
+name = "implementation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.41.1", features = ["rt", "rt-multi-thread", "macros", "sync"] }
+chrono = "0.4.38"
+squareup = "2.12.3"
