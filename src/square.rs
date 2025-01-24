@@ -13,7 +13,7 @@ use squareup::models::errors::SquareApiError;
 use squareup::models::{CatalogObject, ListCatalogParameters};
 use squareup::models::enums::TenderType::SquareAccount;
 use crate::descriptor::{GlobalListingDescriptor, ListingDescriptor};
-use crate::state::ListingFields;
+use crate::state::{ListingTitleField};
 
 #[derive(Debug)]
 pub struct SquareListingDescriptor {
@@ -57,8 +57,8 @@ impl SquareVendor {
             descriptor: ListingDescriptor::Square(SquareListingDescriptor {
                 catalog_object_id: catalog_id
             }),
-            fields: Some(ListingFields {
-                title: listing.name.expect("Square requires listings to have a name.")
+            title: Some(ListingTitleField {
+                value: listing.name.expect("Square requires all Listings to have a name."),
             })
         }))
     }
@@ -68,9 +68,9 @@ impl Vendor<ListingInstance> for SquareVendor {
     type Descriptor = SquareListingDescriptor;
     type Error = SquareApiError;
 
-    fn vend(&self, descriptor: &Self::Descriptor) -> ListingFields {
-        todo!()
-    }
+    // fn vend(&self, descriptor: &Self::Descriptor) -> ListingFields {
+    //     todo!()
+    // }
 
     async fn index(&self, cursor: Option<String>) -> Result<Vec<(GlobalListingDescriptor, ListingInstance)>, SquareApiError> {
         let mut index = Vec::new();

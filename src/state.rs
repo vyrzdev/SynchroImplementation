@@ -1,5 +1,5 @@
 use crate::descriptor::{GlobalListingDescriptor, ListingDescriptor};
-use crate::Instance;
+use crate::{Field, Instance};
 
 struct Listing {
     descriptor: GlobalListingDescriptor,
@@ -9,15 +9,30 @@ struct Listing {
 #[derive(Debug)]
 pub struct ListingInstance {
     pub(crate) descriptor: ListingDescriptor,
-    pub(crate) fields: Option<ListingFields> // May not be populated.
+    pub(crate) title: Option<ListingTitleField> // May not be populated.
 }
 
 impl Instance for ListingInstance {
-    type Fields = ListingFields;
     type GlobalDescriptor = GlobalListingDescriptor;
 }
 
+// #[derive(Debug)]
+// pub enum ListingFieldKind {
+//     Title(ListingTitleField),
+// }
+
 #[derive(Debug)]
-pub struct ListingFields {
-    pub(crate) title: String,
+pub struct ListingTitleField {
+    pub(crate) value: String,
 }
+impl Field<String> for ListingTitleField {
+    fn clone_value(&self) -> String {
+        self.value.clone()
+    }
+}
+
+
+// #[derive(Debug)]
+// pub struct ListingFields {
+//     pub(crate) title: String,
+// }
