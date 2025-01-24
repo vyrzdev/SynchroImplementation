@@ -1,9 +1,10 @@
 use crate::descriptor::{GlobalListingDescriptor, ListingDescriptor};
 use crate::{Field, Instance};
 
-struct Listing {
-    descriptor: GlobalListingDescriptor,
-    instances: Vec<ListingInstance>
+#[derive(Debug)]
+pub struct Listing {
+    pub(crate) descriptor: GlobalListingDescriptor,
+    pub(crate) instances: Vec<ListingInstance>
 }
 
 #[derive(Debug)]

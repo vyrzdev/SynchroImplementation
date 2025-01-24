@@ -1,9 +1,11 @@
+use std::collections::HashMap;
 use std::env;
 use std::sync::mpsc::Receiver;
 use std::time::{SystemTime};
 use tokio;
 use tokio::sync::mpsc;
 use crate::square::{SquareListingDescriptor, SquareVendor};
+use crate::state::{Listing, ListingInstance};
 
 mod state;
 mod square;
@@ -37,13 +39,36 @@ pub trait Field<Type: Clone> {
     fn clone_value(&self) -> Type;
 }
 
-#[derive(Debug)]
-struct ListingFields {
-    title: String,
-}
-
 #[tokio::main]
 async fn main() {
-    let vendor = SquareVendor::new();
-    println!("{:#?}",vendor.index(None).await);
+    let vendor1 = SquareVendor::new();
+    env::set_var("SQUARE_API_TOKEN", "");
+    let vendor2 = SquareVendor::new();
+
+    let vendor1_index = vendor1.index(None).await.unwrap();
+    let vendor2_index = vendor2.index(None).await.unwrap();
+
+    let mut listing_record = HashMap::new();
+    for (desc, instance) in vendor1_index {
+        listing_record.insert(desc.clone(), Listing {
+            descriptor: desc,
+            instances: vec![instance],
+        });
+    }
+
+    for (desc, instance) in vendor2_index {
+        match listing_record.get_mut(&desc) {
+            None => {
+                listing_record.insert(desc.clone(), Listing {
+                    descriptor: desc,
+                    instances: vec![instance],
+                });
+            }
+            Some(listing) => {
+                listing.instances.push(instance);
+            }
+        }
+    }
+
+    println!("{:#?}", listing_record)
 }
