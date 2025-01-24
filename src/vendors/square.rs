@@ -1,4 +1,4 @@
-use std::env;
+use hifitime::Epoch;
 use squareup::{
     api::CatalogApi,
     config::{BaseUri, Configuration, Environment},
@@ -7,9 +7,10 @@ use squareup::{
 };
 use squareup::models::enums::CatalogObjectType;
 use squareup::models::errors::SquareApiError;
-use squareup::models::{CatalogObject, ListCatalogParameters};
+use squareup::models::{CatalogItem, CatalogObject, ListCatalogParameters, ListCatalogResponse, RetrieveCatalogObjectParameters};
 use crate::Vendor;
-use crate::models::listing::{GlobalListingDescriptor, ListingDescriptor, ListingInstance, ListingTitleField};
+use crate::models::listing::{GlobalListingDescriptor, ListingDescriptor, ListingFields, ListingInstance, ListingState, ListingTitleField};
+use crate::poll::Poll;
 
 #[derive(Debug)]
 pub struct SquareListingDescriptor {
@@ -18,6 +19,12 @@ pub struct SquareListingDescriptor {
 
 pub struct SquareVendor {
     catalog_api: CatalogApi
+}
+
+pub struct Query<T> {
+    sent: Epoch,
+    received: Epoch,
+    response: T
 }
 
 impl SquareVendor {
@@ -31,32 +38,64 @@ impl SquareVendor {
         SquareVendor { catalog_api }
     }
 
-    fn process_listing(listing: CatalogObject) -> Option<(GlobalListingDescriptor, ListingInstance)> {
-        // TODO: Builder Syntax <3
-        let catalog_id = listing.id;
-        let listing = listing.item_data?;
-        let variation_data = listing.variations.expect("Square requires 1 variation min on a listing.");
-        assert!(variation_data.len() >= 1); // Square requires one variation minimum per listing.
 
-        let mut global_descriptor: GlobalListingDescriptor = Vec::with_capacity(variation_data.len());
-        for variation in variation_data {
-            let variation = variation.item_variation_data?;
-            if let Some(sku) = variation.sku {
-                global_descriptor.push(sku);
+    async fn list_catalog_objects(&self, params: &ListCatalogParameters) -> Result<Query<ListCatalogResponse>, SquareApiError> {
+        let sent = Epoch::now().expect("Failed to take timestamp!");
+        let response = self.catalog_api.list_catalog(&params).await?;
+        Ok(Query {
+            received: Epoch::now().expect("Failed to take timestamp!"),
+            sent,
+            response
+        })
+    }
+
+    fn find_listing_global_descriptor(listing: &CatalogItem) -> GlobalListingDescriptor {
+        let mut descriptor = vec![];
+
+        let variations = listing.variations.as_ref().expect("Square requires 1 variation per listing.");
+        for variation in variations {
+            let variation_data = variation.item_variation_data.as_ref().expect("Variation had no data!");
+            if let Some(sku) = variation_data.sku.as_ref() {
+                descriptor.push(sku.clone());
             }
         }
-        if global_descriptor.len() == 0 {
-            return None; // Product is UNTRACKED (NO SKU)
-        }
 
-        Some((global_descriptor, ListingInstance {
+        descriptor
+    }
+
+    fn process_catalog_item(sent: Epoch, received: Epoch, catalog_object: CatalogObject) -> ListingState {
+        let item_data = catalog_object.item_data.expect("Item had no item data!");
+        let title = item_data.name.expect("Item had no name! (square requires this!)");
+
+        ListingState {
+            at: (sent, received),
             descriptor: ListingDescriptor::Square(SquareListingDescriptor {
-                catalog_object_id: catalog_id
+                catalog_object_id: catalog_object.id
             }),
-            title: Some(ListingTitleField {
-                value: listing.name.expect("Square requires all Listings to have a name."),
-            })
-        }))
+            fields: ListingFields {
+                title: Some(ListingTitleField {
+                    title: title
+                })
+            }
+        }
+    }
+
+    fn process_list_catalog_query(query: Query<ListCatalogResponse>) -> Vec<(GlobalListingDescriptor, ListingState)> {
+        let mut build = Vec::new();
+
+        match query.response.objects {
+            Some(objects) => {
+                for object in objects {
+                    build.push((
+                        Self::find_listing_global_descriptor(object.item_data.as_ref().expect("Item had no item data!")),
+                        Self::process_catalog_item(query.sent.clone(), query.received.clone(), object))
+                    );
+                }
+
+                build
+            },
+            None => build
+        }
     }
 }
 
@@ -64,11 +103,43 @@ impl Vendor<ListingInstance> for SquareVendor {
     type Descriptor = SquareListingDescriptor;
     type Error = SquareApiError;
 
-    // fn vend(&self, descriptor: &Self::Descriptor) -> ListingFields {
-    //     todo!()
+    async fn vend(&self, descriptor: &SquareListingDescriptor) -> Result<Option<ListingState>, SquareApiError> {
+        let params = RetrieveCatalogObjectParameters {
+            include_related_objects: None,
+            catalog_version: None,
+            include_category_path_to_root: None,
+        };
+        let sent = Epoch::now().expect("Failed to take timestamp!");
+        let response = self.catalog_api.retrieve_catalog_object(
+            &descriptor.catalog_object_id,
+            &params
+        ).await?;
+        let received = Epoch::now().expect("Failed to take timestamp!");
+
+        Ok(match response.object {
+            Some(object) => Some(Self::process_catalog_item(sent, received, object)),
+            None => None
+        })
+    }
+
+    // fn vend(&self, descriptor: &Self::Descriptor) -> Result<Option<ListingInstance>, Self::Error> {
+    //     let params = RetrieveCatalogObjectParameters {
+    //
+    //     };
+    //
+    //     let response = self.catalog_api.retrieve_catalog_object(
+    //         &descriptor.catalog_object_id,
+    //         &params).await?;
+    //
+    //     match &response.object {
+    //         Some(listing) => self.consume(response.object),
+    //         None => Ok(None)
+    //     }
+    //
+    //
     // }
 
-    async fn index(&self, cursor: Option<String>) -> Result<Vec<(GlobalListingDescriptor, ListingInstance)>, SquareApiError> {
+    async fn index(&self, cursor: Option<String>) -> Result<Vec<(GlobalListingDescriptor, ListingState)>, SquareApiError> {
         let mut index = Vec::new();
 
         let mut params = ListCatalogParameters {
@@ -77,21 +148,10 @@ impl Vendor<ListingInstance> for SquareVendor {
             cursor
         };
         loop {
-            let response = self.catalog_api.list_catalog(&params).await?;
-            params.cursor = response.cursor;
+            let query = self.list_catalog_objects(&params).await?;
+            params.cursor = query.response.cursor.clone();
 
-            if let Some(objects) = response.objects {
-                // Process...
-
-                for object in objects {
-                    match SquareVendor::process_listing(object) {
-                        Some(record) => index.push(record),
-                        None => {
-                            println!("Ignored listing as process returned None!");
-                        }
-                    }
-                }
-            }
+            index.append(&mut Self::process_list_catalog_query(query));
 
             if params.cursor == None {
                 break;

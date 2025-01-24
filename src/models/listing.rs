@@ -1,4 +1,7 @@
-use crate::data::{Field, Instance};
+use std::collections::HashMap;
+use uuid::Uuid;
+use crate::data::{Field, Instance, Window};
+use crate::poll::Poll;
 use crate::vendors::square::SquareListingDescriptor;
 
 pub type GlobalListingDescriptor = Vec<String>; // Supports compound keys (variation-specific SKUs)
@@ -11,27 +14,37 @@ pub enum ListingDescriptor {
 #[derive(Debug)]
 pub struct Listing {
     pub(crate) descriptor: GlobalListingDescriptor,
-    pub(crate) instances: Vec<ListingInstance>
+    pub(crate) instances: HashMap<Uuid, ListingInstance>
 }
 
 #[derive(Debug)]
 pub struct ListingInstance {
+    pub(crate) last_updated: Window,
+    pub(crate) history: Vec<ListingState>,
+}
+
+#[derive(Debug)]
+pub struct ListingState {
+    pub(crate) at: Window,
     pub(crate) descriptor: ListingDescriptor,
-    pub(crate) title: Option<ListingTitleField> // May not be populated.
+    pub(crate) fields: ListingFields,
+}
+
+#[derive(Debug)]
+pub struct ListingFields {
+    pub(crate) title: Option<ListingTitleField>,
 }
 
 impl Instance for ListingInstance {
+    type State = ListingState;
     type GlobalDescriptor = GlobalListingDescriptor;
 }
 
 
 // Fields
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ListingTitleField {
-    pub(crate) value: String,
+    pub(crate) title: String,
+    // pub(crate) history: Vec<Poll<String>>
 }
-impl Field<String> for ListingTitleField {
-    fn clone_value(&self) -> String {
-        self.value.clone()
-    }
-}
+impl Field<String> for ListingTitleField {}
