@@ -1,7 +1,4 @@
 use std::env;
-use crate::{Vendor, state::{ListingInstance}};
-
-extern crate squareup;
 use squareup::{
     api::CatalogApi,
     config::{BaseUri, Configuration, Environment},
@@ -11,9 +8,8 @@ use squareup::{
 use squareup::models::enums::CatalogObjectType;
 use squareup::models::errors::SquareApiError;
 use squareup::models::{CatalogObject, ListCatalogParameters};
-use squareup::models::enums::TenderType::SquareAccount;
-use crate::descriptor::{GlobalListingDescriptor, ListingDescriptor};
-use crate::state::{ListingTitleField};
+use crate::Vendor;
+use crate::models::listing::{GlobalListingDescriptor, ListingDescriptor, ListingInstance, ListingTitleField};
 
 #[derive(Debug)]
 pub struct SquareListingDescriptor {

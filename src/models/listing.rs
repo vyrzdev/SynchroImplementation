@@ -1,5 +1,12 @@
-use crate::descriptor::{GlobalListingDescriptor, ListingDescriptor};
-use crate::{Field, Instance};
+use crate::data::{Field, Instance};
+use crate::vendors::square::SquareListingDescriptor;
+
+pub type GlobalListingDescriptor = Vec<String>; // Supports compound keys (variation-specific SKUs)
+
+#[derive(Debug)]
+pub enum ListingDescriptor {
+    Square(SquareListingDescriptor)
+}
 
 #[derive(Debug)]
 pub struct Listing {
@@ -17,11 +24,8 @@ impl Instance for ListingInstance {
     type GlobalDescriptor = GlobalListingDescriptor;
 }
 
-// #[derive(Debug)]
-// pub enum ListingFieldKind {
-//     Title(ListingTitleField),
-// }
 
+// Fields
 #[derive(Debug)]
 pub struct ListingTitleField {
     pub(crate) value: String,
@@ -31,9 +35,3 @@ impl Field<String> for ListingTitleField {
         self.value.clone()
     }
 }
-
-
-// #[derive(Debug)]
-// pub struct ListingFields {
-//     pub(crate) title: String,
-// }
