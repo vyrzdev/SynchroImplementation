@@ -1,10 +1,18 @@
-use crate::data::Instance;
+use tokio::sync::mpsc::Sender;
+use crate::data::Observation;
 
-pub trait Vendor<I: Instance> {
-    type Descriptor;
+pub type VendorDescriptor = String;
+
+pub trait Vendor {
+    type Config;
     type Error;
 
-    async fn vend(&self, descriptor: &Self::Descriptor) -> Result<Option<I::State>, Self::Error>; // Will given a descriptor suited to itself, vend a fields.
+    fn new(name: String, config: Self::Config) -> Result<Self, Self::Error> where Self: Sized;
 
-    async fn index(&self, cursor: Option<String>) -> Result<Vec<(I::GlobalDescriptor, I::State)>, Self::Error>;
+    async fn worker(self, tx: Sender<Observation>) -> Result<(), Self::Error>;
+}
+
+pub struct VendorInstance<V: Vendor> {
+    pub(crate) descriptor: VendorDescriptor,
+    pub(crate) vendor: V
 }
