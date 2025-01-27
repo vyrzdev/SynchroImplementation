@@ -1,9 +1,9 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct ListingDescriptor {
-    pub(crate) sku: Vec<String>,
+    pub(crate) sku: Vec<String>, // TODO: Partial Equality on Listing Descriptors.
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum ListingField {
     Title
 }

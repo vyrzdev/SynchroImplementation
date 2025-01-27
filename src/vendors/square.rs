@@ -43,7 +43,6 @@ pub(crate) struct SquareVendor {
     catalog_api: CatalogApi,
     listing_state: HashMap<String, HashMap<SquareListingField, SquareState>>,
     listing_mapping: HashMap<String, ListingDescriptor>,
-    // mapping: HashMap<String, EntityDescriptor>
 }
 
 struct SquareQuery<T> {

@@ -4,18 +4,18 @@ use crate::vendor::VendorDescriptor;
 
 pub type Window = (Epoch, Epoch);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EntityDescriptor {
     ListingField((ListingDescriptor, ListingField)),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Action {
     Mutation,
     Assignment
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Observation {
     pub(crate) subject: EntityDescriptor,
     pub(crate) at: (Epoch, Epoch),
@@ -24,9 +24,14 @@ pub struct Observation {
 }
 
 
+
+pub struct State {
+    pub(crate) at: Window,
+
+}
+
 // Assume well-formed; a < b
 
-//
 // struct Observation<T> {
 //     value: T,
 //     window: Window,
@@ -34,4 +39,4 @@ pub struct Observation {
 
 // // Checks if windows overlap;
 // // See: https://stackoverflow.com/questions/3269434/whats-the-most-efficient-way-to-test-if-two-ranges-overlap
-// const OVERLAP: fn(Window, Window) -> bool = |a, b| (a.0 <= b.1) && (b.0 <= a.1);
+pub const OVERLAP: fn(Window, Window) -> bool = |a, b| (a.0 <= b.1) && (b.0 <= a.1);
